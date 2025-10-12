@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seat Booking</title>
+    <style>
+        :root {
+            --seat-size: 56px;
+            --gap: 10px;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Naskh Arabic", Tahoma, sans-serif;
+            margin: 0;
+            background: #0f172a;
+            color: #e5e7eb;
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 16px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        .sub {
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .spacer {
+            flex: 1 1 auto;
+        }
+
+        .legend {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-inline-start: auto;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #0b1222;
+            border: 1px solid #1f2937;
+            font-size: 12px;
+            cursor: default;
+            user-select: none;
+        }
+
+        /* Scrollable stage */
+        .stageScroll {
+            overflow: auto;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            background: #0b1222;
+        }
+
+        /* Increased height to fit your edited Y rows (up to 800) */
+        #grid {
+            position: relative;
+            width: 100%;
+            min-width: 1100px;
+            height: 900px;
+        }
+
+        /* Buttons */
+        button {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            background: #0a1020;
+            color: #e5e7eb;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button.primary {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+
+        button.ghost {
+            background: transparent;
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        /* Seat button */
+        .seat {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            width: var(--seat-size);
+            height: calc(var(--seat-size) + 16px);
+            background: transparent;
+            border: 0;
+            padding: 0;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            user-select: none;
+            border-radius: 14px;
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            transition: transform .05s, box-shadow .15s, outline-color .1s;
+            color: #9ca3af;
+        }
+
+        .seat:hover {
+            transform: translate(-50%, -50%) translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
+        }
+
+        .seat:focus-visible {
+            outline: 2px solid #60a5fa88;
+        }
+
+        .seat.selected {
+            outline: 2px solid #3b82f6;
+            box-shadow: 0 0 0 6px #1e3a8a55;
+        }
+
+        .seat svg {
+            width: var(--seat-size);
+            height: var(--seat-size);
+            display: block;
+        }
+
+        .seat .label {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        /* Theme: green available / red booked */
+        .seat.available {
+            color: #22c55e;
+        }
+
+        .seat.available:hover {
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.55);
+        }
+
+        .seat.booked {
+            color: #ef4444;
+            cursor: not-allowed;
+        }
+
+        .seat.booked .label {
+            color: #f87171;
+            text-decoration: line-through;
+        }
+
+        .seat.blocked {
+            color: #7f1d1d;
+            cursor: not-allowed;
+        }
+
+        .seat.blocked .label {
+            color: #9f1239;
+        }
+
+        /* Modals & toast */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 50;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 520px;
+            background: #0b1222;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+            border: 1px solid #1f2937;
+        }
+
+        .card h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
+        }
+
+        .card p {
+            margin: 0 0 12px;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 10px 0;
+        }
+
+        .field input,
+        .field select {
+            padding: 10px 12px;
+            border: 1px solid #334155;
+            background: #0a1020;
+            color: #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111827;
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 10px;
+            display: none;
+            font-size: 13px;
+            z-index: 60;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        /* markers: screen + door */
+        .marker {
+            position: absolute;
+            pointer-events: none;
+            color: #cbd5e1;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .screenRect {
+            left: 50%;
+            top: 3%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 24px;
+            line-height: 24px;
+            background: #1f2937;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, .25) inset;
+        }
+
+        .doorRect {
+            left: 4%;
+            top: 3%;
+            width: 70px;
+            height: 36px;
+            background: #243244;
+            border: 1px solid #3b4a61;
+            border-radius: 6px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, .2) inset;
+        }
+
+        .doorLabel {
+            top: 8.8%;
+            left: 4%;
+            width: 70px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: .9;
+        }
+
+        /* Booking Closed Overlay */
+        .locked .wrap {
+            filter: blur(4px);
+        }
+
+        .lockCurtain {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(2px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+        }
+
+        .lockCurtain.open {
+            display: flex;
+        }
+
+        .lockMsg {
+            width: min(92vw, 520px);
+            background: #0b1222;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .55);
+            text-align: center;
+        }
+
+        .lockMsg h3 {
+            margin: 0 0 8px;
+            font-size: 20px;
+        }
+
+        .lockMsg p {
+            margin: 0 0 14px;
+            color: #cbd5e1;
+        }
+
+        .lockMsg button {
+            margin-top: 6px;
+        }
+
+
+        @media (max-width: 520px) {
+            :root {
+                --seat-size: 46px;
+                --gap: 8px;
+            }
+
+            #grid {
+                height: 800px;
+            }
+        }
+
+        /* THEME 2: Ocean Blue (Commented Out) */
+        .seat.available {
+            color: #0ea5e9;
+        }
+
+        /* sky blue */
+        .seat.available:hover {
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.45);
+        }
+
+        .seat.booked {
+            color: #374151;
+            cursor: not-allowed;
+        }
+
+        /* gray */
+        .seat.booked .label {
+            color: #9ca3af;
+            text-decoration: line-through;
+        }
+
+        .seat.blocked {
+            color: #374151;
+            cursor: not-allowed;
+        }
+
+        .seat.blocked .label {
+            color: #a1a1aa;
+        }
+
+        .seat.selected {
+            outline: 2px solid #0284c7;
+            /* darker blue */
+            box-shadow: 0 0 0 6px rgba(2, 132, 199, 0.35);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Booking-Closed Overlay -->
+    <div id="lockCurtain" class="lockCurtain" aria-hidden="true">
+        <div class="lockMsg">
+            <h3 id="lockTitle">الحجز مغلق</h3>
+            <p id="lockDesc">انتهت فترة الحجز لهذا الحدث. شكرًا لتفهمكم.</p>
+            <button id="lockOkBtn" class="primary">حسنًا</button>
+        </div>
+    </div>
+
+    <div class="wrap" aria-live="polite">
+        <h1 id="titleText">اختر مقعدك</h1>
+        <div id="subText" class="sub">اختر الجنس أولاً لفتح القسم الخاص بك. انقر لتحديد المقعد (إطار أزرق).</div>
+
+        <div class="toolbar">
+            <label for="gender" style="display:flex; align-items:center; gap:8px;">
+                <span id="genderLabel">الجنس</span>
+                <select id="gender"
+                    style="padding:8px 10px; border-radius:10px; border:1px solid #334155; background:#0a1020; color:#e5e7eb;">
+                    <option value="" id="genderOptSelect">— اختر —</option>
+                    <option value="male" id="genderOptMale">ذكر</option>
+                    <option value="female" id="genderOptFemale">أنثى</option>
+                </select>
+            </label>
+
+            <button id="selectConfirmBtn" class="primary" disabled>تأكيد الاختيار</button>
+            <button id="clearSelectionBtn" class="ghost" disabled>مسح الاختيار</button>
+            <button id="cancelReservationBtn" class="ghost">إلغاء الحجز</button>
+
+            <div class="spacer"></div>
+            <button id="langBtn" class="ghost">English</button>
+
+            <div class="legend">
+                <span class="pill" id="pillAvail">
+                    <svg viewBox="0 0 64 64" width="18" height="18" aria-hidden="true" style="color:#0ea5e9">
+                        <g fill="currentColor">
+                            <rect x="14" y="8" width="36" height="26" rx="6" />
+                            <rect x="10" y="32" width="44" height="16" rx="6" />
+                            <rect x="12" y="48" width="8" height="10" rx="3" />
+                            <rect x="44" y="48" width="8" height="10" rx="3" />
+                        </g>
+                    </svg>
+                    <span id="legendAvailText">متاح</span>
+                </span>
+                <span class="pill" id="pillUnavail">
+                    <svg viewBox="0 0 64 64" width="18" height="18" aria-hidden="true" style="color:#374151">
+                        <g fill="currentColor">
+                            <rect x="14" y="8" width="36" height="26" rx="6" />
+                            <rect x="10" y="32" width="44" height="16" rx="6" />
+                            <rect x="12" y="48" width="8" height="10" rx="3" />
+                            <rect x="44" y="48" width="8" height="10" rx="3" />
+                        </g>
+                    </svg>
+                    <span id="legendUnavailText">غير متاح</span>
+                </span>
+                <span class="pill" id="legendSelectedText">المحدد → إطار أزرق</span>
+            </div>
+        </div>
+
+        <div class="stageScroll">
+            <div id="grid"></div>
+        </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="modal" class="modal" role="dialog" aria-modal="true">
+        <div class="card">
+            <h3 id="modalTitle">تأكيد المقعد</h3>
+            <p><span id="seatLabel">المقعد</span>: <span id="modalSeat"></span></p>
+
+            <!-- Name -->
+            <div class="field">
+                <label for="fullName" id="nameLabel">الاسم الكامل</label>
+                <input id="fullName" placeholder="مثال: سارة العبدالله" required />
+            </div>
+
+
+
+            <!-- College -->
+            <div class="field">
+                <label for="college" id="collegeLabel">الكلية</label>
+                <input id="college" placeholder="مثال: كلية العلوم" required />
+            </div>
+
+            <!-- Phone -->
+            <div class="field">
+                <label for="phone" id="phoneLabel">رقم الهاتف</label>
+                <input id="phone" placeholder="مثال: 5xxxxxxxx" required />
+            </div>
+
+            <div class="actions" style="display:flex; gap:10px; justify-content:flex-end;">
+                <button id="cancelBtn">إلغاء</button>
+                <button id="confirmBtn" class="primary">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancel Modal -->
+    <div id="cancelModal" class="modal" role="dialog" aria-modal="true">
+        <div class="card">
+            <h3 id="cancelTitle">إلغاء الحجز</h3>
+            <p id="cancelDesc">استخدم مُعرفًا واحدًا فقط.</p>
+            <div class="field"><label for="lookupType" id="lookupTypeLabel">التعرف على الحجز بواسطة</label><select
+                    id="lookupType"></select></div>
+            <div class="field"><label for="lookupValue" id="valueLabel">القيمة</label><input id="lookupValue" /></div>
+            <div class="actions" style="display:flex; gap:10px; justify-content:flex-end;">
+                <button id="cancelCancelBtn">إغلاق</button>
+                <button id="doCancelBtn" class="primary">إلغاء الحجز</button>
+            </div>
+            <p id="cancelHint" style="margin-top:8px; color:#cbd5e1; font-size:12px;"></p>
+        </div>
+    </div>
+
+    <!-- Welcome / How-to Modal -->
+    <div id="welcomeModal" class="modal" role="dialog" aria-modal="true" style="z-index:60;">
+        <div class="card">
+            <h3 id="welcomeTitle">مرحبًا! طريقة الحجز</h3>
+            <div id="welcomeBody" style="line-height:1.6; color:#cbd5e1;"></div>
+            <div class="actions" style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+                <button id="welcomeOk" class="primary">فهمت</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- After-Booking Confirmation Modal -->
+    <div id="postConfirmModal" class="modal" role="dialog" aria-modal="true" style="z-index:60;">
+        <div class="card">
+            <h3 id="postConfirmTitle">تم تأكيد الحجز</h3>
+            <div id="postConfirmBody" style="line-height:1.6; color:#cbd5e1;"></div>
+            <div class="actions" style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+                <button id="postConfirmOk" class="primary">حسنًا</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="toast" class="toast"></div>
+
+  <script>
+    /* ========= Netlify Demo Mode Stub ========= */
+    // This section provides mock responses when running outside Google Apps Script context
+    // (e.g., on Netlify, GitHub Pages, or local development)
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      console.log('Running in demo mode - no Google Apps Script backend detected');
+      
+      // Create mock google.script.run object
+      window.google = {
+        script: {
+          run: {
+            withSuccessHandler: function(callback) {
+              return {
+                getSeats: function() {
+                  // Return mock seat data - all seats available
+                  const mockSeats = [
+                    { seatId: 'L1-1', status: 'AVAILABLE' },
+                    { seatId: 'L1-2', status: 'AVAILABLE' },
+                    { seatId: 'L1-3', status: 'AVAILABLE' },
+                    { seatId: 'L1-4', status: 'AVAILABLE' },
+                    { seatId: 'L1-5', status: 'AVAILABLE' },
+                    { seatId: 'L1-6', status: 'AVAILABLE' },
+                    { seatId: 'L1-7', status: 'AVAILABLE' },
+                    { seatId: 'L1-8', status: 'AVAILABLE' },
+                    { seatId: 'L2-1', status: 'AVAILABLE' },
+                    { seatId: 'L2-2', status: 'AVAILABLE' },
+                    { seatId: 'L2-3', status: 'AVAILABLE' },
+                    { seatId: 'L2-4', status: 'AVAILABLE' },
+                    { seatId: 'L2-5', status: 'AVAILABLE' },
+                    { seatId: 'L2-6', status: 'AVAILABLE' },
+                    { seatId: 'L3-1', status: 'AVAILABLE' },
+                    { seatId: 'L3-2', status: 'AVAILABLE' },
+                    { seatId: 'L3-3', status: 'AVAILABLE' },
+                    { seatId: 'L3-4', status: 'AVAILABLE' },
+                    { seatId: 'L3-5', status: 'AVAILABLE' },
+                    { seatId: 'L3-6', status: 'AVAILABLE' },
+                    { seatId: 'L4-1', status: 'AVAILABLE' },
+                    { seatId: 'L4-2', status: 'AVAILABLE' },
+                    { seatId: 'L4-3', status: 'AVAILABLE' },
+                    { seatId: 'L4-4', status: 'AVAILABLE' },
+                    { seatId: 'L4-5', status: 'AVAILABLE' },
+                    { seatId: 'R1-1', status: 'AVAILABLE' },
+                    { seatId: 'R1-2', status: 'AVAILABLE' },
+                    { seatId: 'R1-3', status: 'AVAILABLE' },
+                    { seatId: 'R1-4', status: 'AVAILABLE' },
+                    { seatId: 'R1-5', status: 'AVAILABLE' },
+                    { seatId: 'R1-6', status: 'AVAILABLE' },
+                    { seatId: 'R1-7', status: 'AVAILABLE' },
+                    { seatId: 'R1-8', status: 'AVAILABLE' },
+                    { seatId: 'R2-1', status: 'AVAILABLE' },
+                    { seatId: 'R2-2', status: 'AVAILABLE' },
+                    { seatId: 'R2-3', status: 'AVAILABLE' },
+                    { seatId: 'R2-4', status: 'AVAILABLE' },
+                    { seatId: 'R2-5', status: 'AVAILABLE' },
+                    { seatId: 'R2-6', status: 'AVAILABLE' },
+                    { seatId: 'R3-1', status: 'AVAILABLE' },
+                    { seatId: 'R3-2', status: 'AVAILABLE' },
+                    { seatId: 'R3-3', status: 'AVAILABLE' },
+                    { seatId: 'R3-4', status: 'AVAILABLE' },
+                    { seatId: 'R3-5', status: 'AVAILABLE' },
+                    { seatId: 'R3-6', status: 'AVAILABLE' },
+                    { seatId: 'R4-1', status: 'AVAILABLE' },
+                    { seatId: 'R4-2', status: 'AVAILABLE' },
+                    { seatId: 'R4-3', status: 'AVAILABLE' },
+                    { seatId: 'R4-4', status: 'AVAILABLE' },
+                    { seatId: 'R4-5', status: 'AVAILABLE' },
+                    { seatId: 'A1', status: 'AVAILABLE' },
+                    { seatId: 'A2', status: 'AVAILABLE' },
+                    { seatId: 'A3', status: 'AVAILABLE' },
+                    { seatId: 'B1', status: 'AVAILABLE' },
+                    { seatId: 'B2', status: 'AVAILABLE' },
+                    { seatId: 'B3', status: 'AVAILABLE' },
+                    { seatId: 'B4', status: 'AVAILABLE' },
+                    { seatId: 'B5', status: 'AVAILABLE' },
+                    { seatId: 'B6', status: 'AVAILABLE' },
+                    { seatId: 'C1', status: 'AVAILABLE' },
+                    { seatId: 'C2', status: 'AVAILABLE' },
+                    { seatId: 'C3', status: 'AVAILABLE' },
+                    { seatId: 'C4', status: 'AVAILABLE' },
+                    { seatId: 'C5', status: 'AVAILABLE' },
+                    { seatId: 'C6', status: 'AVAILABLE' },
+                    { seatId: 'C7', status: 'AVAILABLE' },
+                    { seatId: 'C8', status: 'AVAILABLE' },
+                    { seatId: 'D1', status: 'AVAILABLE' },
+                    { seatId: 'D2', status: 'AVAILABLE' },
+                    { seatId: 'D3', status: 'AVAILABLE' },
+                    { seatId: 'D4', status: 'AVAILABLE' },
+                    { seatId: 'D5', status: 'AVAILABLE' },
+                    { seatId: 'D6', status: 'AVAILABLE' },
+                    { seatId: 'D7', status: 'AVAILABLE' },
+                    { seatId: 'D8', status: 'AVAILABLE' }
+                  ];
+                  setTimeout(() => callback(mockSeats), 100);
+                },
+                getBookingStatus: function() {
+                  // Return mock booking status - always open in demo mode
+                  setTimeout(() => callback({ open: true }), 50);
+                },
+                reserveSeat: function(seatId, name, college, phone) {
+                  // Return mock failure for booking attempts
+                  setTimeout(() => callback({ 
+                    ok: false, 
+                    reason: 'Demo mode - no backend connected' 
+                  }), 200);
+                },
+                cancelBooking: function(type, value) {
+                  // Return mock failure for cancellation attempts
+                  setTimeout(() => callback({ 
+                    ok: false, 
+                    reason: 'Demo mode - no backend connected' 
+                  }), 200);
+                }
+              };
+            }
+          }
+        }
+      };
+    }
+    /* ========= End Netlify Demo Mode Stub ========= */
+
+    /* ========= i18n ========= */
+        const T = {
+            ar: {
+                dir: 'rtl', title: 'اختر مقعدك', sub: 'اختر الجنس أولاً لفتح القسم الخاص بك. انقر لتحديد المقعد (إطار أزرق).',
+                gender: 'الجنس', genderSelect: '— اختر —', genderMale: 'ذكر', genderFemale: 'أنثى',
+                confirmSelection: 'تأكيد الاختيار', clearSelection: 'مسح الاختيار', cancelReservation: 'إلغاء الحجز',
+                legendAvailable: 'متاح', legendUnavailable: 'غير متاح', legendSelected: 'المحدد → إطار أزرق',
+                bookingTitle: 'تأكيد المقعد', seatLabel: 'المقعد',
+                name: 'الاسم الكامل', namePH: 'مثال: سارة العبدالله',
+                kuid: 'الكلية', kuidPH: 'مثال: كلية العلوم',
+                phone: 'رقم الهاتف', phonePH: 'مثال: 5xxxxxxxx',
+                modalCancel: 'إلغاء', modalConfirm: 'تأكيد',
+                cancelTitle: 'إلغاء الحجز', cancelDesc: 'استخدم مُعرفًا واحدًا فقط.', identifyBy: 'التعرف على الحجز بواسطة',
+                byKuid: 'الرقم الجامعي', byPhone: 'رقم الهاتف', byName: 'الاسم', valueLabel: 'القيمة',
+                cancelClose: 'إغلاق', cancelDo: 'إلغاء الحجز',
+                toastChooseGender: 'اختر الجنس أولاً', toastPickSeat: 'اختر مقعدًا أولاً', toastSeatJustBooked: 'تم حجز هذا المقعد للتو. اختر مقعدًا آخر.',
+                toastSeatNotInSection: 'المقعد ليس ضمن قسمك', toastFillAll: 'يرجى تعبئة جميع الحقول المطلوبة',
+                toastConfirmed: '✅ تم تأكيد المقعد', toastCancelled: '✅ تم إلغاء الحجز', working: 'جارٍ التنفيذ…', langBtnOther: 'English',
+                closedTitle: 'الحجز مغلق', closedDesc: 'انتهت فترة الحجز لهذا الحدث. شكرًا لتفهمكم.', closedOk: 'حسنًا',
+                welcomeTitle: 'مرحبًا! طريقة الحجز',
+                welcomeBodyHTML: `
+            <ol style="margin:0; padding-inline-start:1.2em;">
+              <li>اختر <strong>الجنس</strong> لفتح القسم الخاص بك.</li>
+              <li>اضغط على <strong>كرسي متاح</strong> لاختياره، ثم اضغط زر <strong>تأكيد الاختيار</strong>.</li>
+              <li>أدخل <strong>الاسم</strong> و<strong>الكلية</strong> و<strong>رقم الهاتف</strong>.</li>
+              <li>اضغط <strong>تأكيد</strong> لإتمام الحجز.</li>
+              <li>للإلغاء لاحقًا استخدم زر <strong>إلغاء الحجز</strong>.</li>
+            </ol>
+          `,
+                welcomeOk: 'فهمت',
+                postConfirmTitle: 'تم تأكيد الحجز',
+                postConfirmOk: 'حسنًا'
+            },
+            en: {
+                dir: 'ltr', title: 'Choose Your Seat', sub: 'Select your gender first to unlock your section. Tap a seat to select (blue ring).',
+                gender: 'Gender', genderSelect: '— Select —', genderMale: 'Male', genderFemale: 'Female',
+                confirmSelection: 'Confirm selection', clearSelection: 'Clear selection', cancelReservation: 'Cancel reservation',
+                legendAvailable: 'Available', legendUnavailable: 'Unavailable', legendSelected: 'Selected → blue ring',
+                bookingTitle: 'Confirm Seat', seatLabel: 'Seat',
+                name: 'Full Name', namePH: 'e.g., Sara Al-X',
+                kuid: 'College', kuidPH: 'e.g., College of Science',
+                phone: 'Phone', phonePH: 'e.g., 5xxxxxxxx',
+                modalCancel: 'Cancel', modalConfirm: 'Confirm',
+                cancelTitle: 'Cancel Reservation', cancelDesc: 'Use exactly one identifier.', identifyBy: 'Identify booking by',
+                byKuid: 'KU ID', byPhone: 'Phone', byName: 'Name', valueLabel: 'Value',
+                cancelClose: 'Close', cancelDo: 'Cancel booking',
+                toastChooseGender: 'Choose gender first', toastPickSeat: 'Pick a seat first', toastSeatJustBooked: 'That seat was just booked. Pick another.',
+                toastSeatNotInSection: 'Seat not in your section', toastFillAll: 'Please fill all required fields',
+                toastConfirmed: '✅ Seat confirmed', toastCancelled: '✅ Reservation cancelled', working: 'Working…', langBtnOther: 'العربية',
+                closedTitle: 'Booking is closed', closedDesc: 'The booking window for this event has ended. Thanks for understanding.', closedOk: 'OK',
+                welcomeTitle: 'Welcome! How to book',
+                welcomeBodyHTML: `
+            <ol style="margin:0; padding-inline-start:1.2em;">
+              <li>Select your <strong>gender</strong> to unlock your section.</li>
+              <li>Tap an <strong>available seat</strong> to select it, then press <strong>Confirm selection</strong>.</li>
+              <li>Enter your <strong>Name</strong>, <strong>College</strong>, and <strong>Phone</strong>.</li>
+              <li>Press <strong>Confirm</strong> to complete your booking.</li>
+              <li>To cancel later, use the <strong>Cancel reservation</strong> button.</li>
+            </ol>
+          `,
+                welcomeOk: 'Got it',
+                postConfirmTitle: 'Booking confirmed',
+                postConfirmOk: 'OK'
+            }
+        };
+        let LANG = localStorage.getItem('lang') || 'ar';
+        function t(k) { return (T[LANG] && T[LANG][k]) || k; }
+
+        function applyLangTexts() {
+            document.documentElement.lang = LANG; document.documentElement.dir = T[LANG].dir;
+            titleText.textContent = t('title'); subText.textContent = t('sub');
+            genderLabel.textContent = t('gender'); genderOptSelect.textContent = t('genderSelect'); genderOptMale.textContent = t('genderMale'); genderOptFemale.textContent = t('genderFemale');
+            selectConfirmBtn.textContent = t('confirmSelection'); clearSelectionBtn.textContent = t('clearSelection'); cancelReservationBtn.textContent = t('cancelReservation'); langBtn.textContent = t('langBtnOther');
+            legendAvailText.textContent = t('legendAvailable'); legendUnavailText.textContent = t('legendUnavailable'); legendSelectedText.textContent = t('legendSelected');
+            modalTitle.textContent = t('bookingTitle'); seatLabel.textContent = t('seatLabel');
+            nameLabel.textContent = t('name');
+            document.getElementById('fullName').placeholder = t('namePH');
+            collegeLabel.textContent = t('kuid'); college.placeholder = t('kuidPH');
+            phoneLabel.textContent = t('phone'); phone.placeholder = t('phonePH');
+            cancelBtn.textContent = t('modalCancel'); confirmBtn.textContent = t('modalConfirm');
+            cancelTitle.textContent = t('cancelTitle'); cancelDesc.textContent = t('cancelDesc'); lookupTypeLabel.textContent = t('identifyBy');
+            const v = lookupType.value || 'kuid'; lookupType.innerHTML = ''; lookupType.add(new Option(t('byKuid'), 'kuid')); lookupType.add(new Option(t('byPhone'), 'phone')); lookupType.add(new Option(t('byName'), 'name')); lookupType.value = v;
+            valueLabel.textContent = t('valueLabel'); cancelCancelBtn.textContent = t('cancelClose'); doCancelBtn.textContent = t('cancelDo');
+
+            // markers language
+            const scr = document.getElementById('screenMarker'); if (scr) scr.textContent = (LANG === 'ar' ? 'الشاشة' : 'SCREEN');
+            const dr = document.getElementById('doorLabel'); if (dr) dr.textContent = (LANG === 'ar' ? 'الباب' : 'Door');
+
+            // lock message language
+            lockTitle.textContent = t('closedTitle');
+            lockDesc.textContent = t('closedDesc');
+            lockOkBtn.textContent = t('closedOk');
+
+
+            // Welcome / Post-confirm labels
+            document.getElementById('welcomeTitle').textContent = t('welcomeTitle');
+            document.getElementById('welcomeBody').innerHTML = T[LANG].welcomeBodyHTML;
+            document.getElementById('welcomeOk').textContent = t('welcomeOk');
+            document.getElementById('postConfirmTitle').textContent = t('postConfirmTitle');
+            document.getElementById('postConfirmOk').textContent = t('postConfirmOk');
+        }
+
+        /* ===== Geometry (your edited values) ===== */
+        const W = 1000, H = 900, CX = W / 2;  // H increased to fit your rows
+        const GRID = document.getElementById('grid');
+
+        // Column x-positions (symmetrical)
+        const X = { L1: 120, L2: 180, L3: 250, L4: 330 };
+        X.R1 = W - X.L1; X.R2 = W - X.L2; X.R3 = W - X.L3; X.R4 = W - X.L4;
+
+        // Row Y positions
+        const Y_ROW = { A: 500, B: 600, C: 700, D: 800 };
+
+        // Columns (top -> end just above the matching row)
+        const TOP = { L1: 120, L2: 140, L3: 160, L4: 190, R4: 190, R3: 160, R2: 140, R1: 120 };
+        const GAP_BEFORE_ROW = 20;
+
+        const COL_END_Y = {
+            L4: Y_ROW.A - GAP_BEFORE_ROW,
+            L3: Y_ROW.B - GAP_BEFORE_ROW,
+            L2: Y_ROW.C - GAP_BEFORE_ROW,
+            L1: Y_ROW.D - GAP_BEFORE_ROW,
+            R4: Y_ROW.A - GAP_BEFORE_ROW,
+            R3: Y_ROW.B - GAP_BEFORE_ROW,
+            R2: Y_ROW.C - GAP_BEFORE_ROW,
+            R1: Y_ROW.D - GAP_BEFORE_ROW
+        };
+
+        // Counts
+        const COUNTS = { L1: 8, L2: 6, L3: 6, L4: 5, R4: 5, R3: 6, R2: 6, R1: 8, A: 3, B: 6, C: 8, D: 8 };
+
+        // Gender gating: Males => R1–R4 only. Females => L1–L4 and A–D.
+        let selectedGender = '';
+        function isSeatAllowedForGender(id) {
+            if (!selectedGender) return false;
+            const isRight = /^R\d/.test(id); // R1..R4
+            if (selectedGender === 'male') return isRight;
+            if (selectedGender === 'female') return !isRight;
+            return false;
+        }
+
+        // Helpers
+        function chairSVG() { return `<svg viewBox="0 0 64 64" aria-hidden="true"><g fill="currentColor"><rect x="14" y="8" width="36" height="26" rx="6"/><rect x="10" y="32" width="44" height="16" rx="6"/><rect x="12" y="48" width="8" height="10" rx="3"/><rect x="44" y="48" width="8" height="10" rx="3"/></g></svg>`; }
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function pctX(x) { return (x / W) * 100 + '%'; }
+        function pctY(y) { return (y / H) * 100 + '%'; }
+
+
+        let _pollTimerSeats = null;
+
+        function startSeatPolling() {
+            if (_pollTimerSeats) clearInterval(_pollTimerSeats);
+            _pollTimerSeats = setInterval(() => {
+                // Skip polling while the booking modal is open to reduce contention
+                if (!document.getElementById('modal').classList.contains('open')) {
+                    refreshSeats();
+                }
+            }, 12000); // 12s is fine; we still refresh immediately after actions
+        }
+
+        // markers (screen + door)
+        function addMarkers() {
+            GRID.querySelectorAll('.marker').forEach(el => el.remove());
+            const screen = document.createElement('div');
+            screen.className = 'marker screenRect';
+            screen.id = 'screenMarker';
+            screen.textContent = (LANG === 'ar' ? 'الشاشة' : 'SCREEN');
+            GRID.appendChild(screen);
+
+            const door = document.createElement('div');
+            door.className = 'marker doorRect';
+            door.id = 'doorMarker';
+            GRID.appendChild(door);
+
+            const doorTxt = document.createElement('div');
+            doorTxt.className = 'marker doorLabel';
+            doorTxt.id = 'doorLabel';
+            doorTxt.textContent = (LANG === 'ar' ? 'الباب' : 'Door');
+            GRID.appendChild(doorTxt);
+        }
+
+        const seatLayout = [];
+        function buildLayout() {
+            GRID.innerHTML = ''; seatLayout.length = 0;
+
+            // Left columns
+            for (const k of ['L1', 'L2', 'L3', 'L4']) {
+                const count = COUNTS[k];
+                const x = X[k];
+                const y1 = TOP[k];
+                const y2 = COL_END_Y[k];
+                for (let i = 0; i < count; i++) {
+                    const t = (count === 1) ? 0.5 : i / (count - 1);
+                    seatLayout.push({ id: `${k}-${i + 1}`, x, y: lerp(y1, y2, t) });
+                }
+            }
+            // Right columns
+            for (const k of ['R4', 'R3', 'R2', 'R1']) {
+                const count = COUNTS[k];
+                const x = X[k];
+                const y1 = TOP[k];
+                const y2 = COL_END_Y[k];
+                for (let i = 0; i < count; i++) {
+                    const t = (count === 1) ? 0.5 : i / (count - 1);
+                    seatLayout.push({ id: `${k}-${i + 1}`, x, y: lerp(y1, y2, t) });
+                }
+            }
+
+            // Center rows — span from inner edges with ±100 padding (your edit)
+            const ROW_TO_COL = { A: ['L4', 'R4'], B: ['L3', 'R3'], C: ['L2', 'R2'], D: ['L1', 'R1'] };
+            for (const r of ['A', 'B', 'C', 'D']) {
+                const count = COUNTS[r];
+                const y = Y_ROW[r];
+                const [leftKey, rightKey] = ROW_TO_COL[r];
+                const xLeft = X[leftKey] + 100;
+                const xRight = X[rightKey] - 100;
+                for (let i = 0; i < count; i++) {
+                    const t = (count === 1) ? 0.5 : i / (count - 1);
+                    seatLayout.push({ id: `${r}${i + 1}`, x: lerp(xLeft, xRight, t), y });
+                }
+            }
+
+            // Render seats
+            for (const s of seatLayout) {
+                const btn = document.createElement('button');
+                btn.className = 'seat'; btn.dataset.seat = s.id;
+                btn.style.left = pctX(s.x); btn.style.top = pctY(s.y);
+                btn.setAttribute('aria-label', s.id);
+                btn.innerHTML = chairSVG() + `<span class="label">${s.id}</span>`;
+                btn.addEventListener('click', () => onSeatClick(s.id));
+                GRID.appendChild(btn);
+            }
+
+            // Add markers last
+            addMarkers();
+        }
+
+        // ===== App logic =====
+        let seatMap = new Map(); let selectedSeat = null; let bookingOpen = true; let _confirmInFlight = false;
+
+        function setLockedUI(isLocked) {
+            bookingOpen = !isLocked;
+            document.body.classList.toggle('locked', isLocked);
+            lockCurtain.classList.toggle('open', isLocked);
+            lockCurtain.setAttribute('aria-hidden', isLocked ? 'false' : 'true');
+
+            // disable interactive controls
+            gender.disabled = isLocked;
+            selectConfirmBtn.disabled = true;
+            clearSelectionBtn.disabled = true;
+            cancelReservationBtn.disabled = isLocked;
+
+            // disable seats
+            document.querySelectorAll('.seat').forEach(btn => {
+                btn.disabled = true;
+                btn.style.pointerEvents = 'none';
+            });
+        }
+
+        function applyStatuses() {
+            document.querySelectorAll('.seat').forEach(btn => {
+                const id = btn.dataset.seat;
+                const status = (seatMap.get(id) || 'AVAILABLE').toUpperCase();
+                const allowed = isSeatAllowedForGender(id);
+                btn.classList.remove('available', 'booked', 'blocked', 'selected'); btn.disabled = false; btn.style.pointerEvents = '';
+                if (status !== 'AVAILABLE') { btn.classList.add('booked'); btn.disabled = true; }
+                else if (!allowed) { btn.classList.add('blocked'); btn.disabled = true; }
+                else { btn.classList.add('available'); }
+                if (selectedSeat === id) btn.classList.add('selected');
+            });
+            updateSelectionButtons();
+
+            if (!bookingOpen) {
+                document.querySelectorAll('.seat').forEach(btn => { btn.disabled = true; btn.style.pointerEvents = 'none'; });
+            }
+        }
+
+        function onSeatClick(id) {
+            if (!bookingOpen) { return; }
+            if (!selectedGender) { toast('' + t('toastChooseGender')); return; }
+            const st = (seatMap.get(id) || 'AVAILABLE').toUpperCase();
+            if (st !== 'AVAILABLE' || !isSeatAllowedForGender(id)) return;
+            selectedSeat = (selectedSeat === id) ? null : id; applyStatuses();
+        }
+
+        function updateSelectionButtons() {
+            selectConfirmBtn.disabled = !(selectedGender && selectedSeat) || !bookingOpen;
+            clearSelectionBtn.disabled = !selectedSeat || !bookingOpen;
+        }
+        function clearSelection() { if (selectedSeat) { selectedSeat = null; applyStatuses(); } }
+
+        function openModal(id) {
+            if (!bookingOpen) return;
+            modalSeat.textContent = id;
+            modal.classList.add('open');
+            document.getElementById('fullName').focus();
+        }
+        function closeModal() { modal.classList.remove('open'); }
+        function openCancelModal() { if (!bookingOpen) return; lookupType.value = 'kuid'; lookupValue.value = ''; cancelHint.textContent = ''; cancelModal.classList.add('open'); lookupValue.focus(); }
+        function closeCancelModal() { cancelModal.classList.remove('open'); }
+        function toast(m) { const el = document.getElementById('toast'); el.textContent = m; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2400); }
+
+        function onConfirmSelectionClick() {
+            if (!bookingOpen) return;
+            if (!selectedGender) { toast(t('toastChooseGender')); return; }
+            if (!selectedSeat) { toast(t('toastPickSeat')); return; }
+            const st = (seatMap.get(selectedSeat) || 'AVAILABLE').toUpperCase();
+            if (st !== 'AVAILABLE') { toast(t('toastSeatJustBooked')); selectedSeat = null; refreshSeats(); return; }
+            if (!isSeatAllowedForGender(selectedSeat)) { toast(t('toastSeatNotInSection')); return; }
+            openModal(selectedSeat);
+        }
+
+        function allRequiredFilled() {
+            const a = document.getElementById('fullName').value.trim();
+            const b = document.getElementById('college').value.trim();
+            const c = document.getElementById('phone').value.trim();
+            return a && b && c;
+        }
+        function confirmBooking() {
+            if (!bookingOpen || _confirmInFlight) return;
+
+            if (!allRequiredFilled()) { toast(t('toastFillAll')); return; }
+
+            _confirmInFlight = true;
+            const btn = confirmBtn;
+            btn.disabled = true;
+
+            const nameVal = document.getElementById('fullName').value.trim();
+            const collegeVal = document.getElementById('college').value.trim();
+            const phoneVal = document.getElementById('phone').value.trim();
+
+            google.script.run.withSuccessHandler(res => {
+                _confirmInFlight = false;
+                btn.disabled = false;
+                closeModal();
+
+                if (res && res.ok) {
+                    // Show the detailed confirmation modal with pickup instructions
+                    openPostConfirm(res.seatId || (typeof selectedSeat !== 'undefined' ? selectedSeat : ''));
+                    selectedSeat = null;
+                    refreshSeats();   // one immediate refresh after success
+                } else {
+                    toast('❌ ' + (res && res.reason ? res.reason : 'Booking failed'));
+                    refreshSeats();
+                }
+            }).reserveSeat(selectedSeat, nameVal, collegeVal, phoneVal);
+        }
+
+        function doCancelBooking() {
+            if (!bookingOpen) return;
+            const type = lookupType.value, value = lookupValue.value.trim();
+            if (!value) { cancelHint.textContent = (LANG === 'ar' ? 'أدخل قيمة' : 'Enter a value'); return; }
+            const btn = doCancelBtn; btn.disabled = true; cancelHint.textContent = t('working');
+            google.script.run.withSuccessHandler(res => {
+                btn.disabled = false;
+                if (res && res.ok) { closeCancelModal(); toast(t('toastCancelled') + (res.seatId ? ` (${res.seatId})` : '')); refreshSeats(); if (selectedSeat) { selectedSeat = null; applyStatuses(); } }
+                else {
+                    if (res && res.reason === 'Multiple matches' && res.seats && res.seats.length) {
+                        cancelHint.textContent = (LANG === 'ar' ? ('تطابقات متعددة: ' + res.seats.join(', ') + ' . جرّب الرقم الجامعي أو الهاتف.') : ('Multiple matches: ' + res.seats.join(', ') + '. Try KU ID or Phone.'));
+                    } else {
+                        cancelHint.textContent = '❌ ' + (res && res.reason ? res.reason : (LANG === 'ar' ? 'فشل الإلغاء' : 'Cancellation failed'));
+                    }
+                }
+            }).cancelBooking(type, value);
+        }
+
+        function refreshSeats() {
+            google.script.run.withSuccessHandler(list => {
+                seatMap = new Map(list.map(x => [x.seatId, x.status]));
+                applyStatuses();
+            }).getSeats();
+        }
+
+        // Booking open/closed status (backend global)
+        function checkBookingStatus() {
+            google.script.run.withSuccessHandler(res => {
+                const isOpen = !!(res && res.open);
+                if (!isOpen) {
+                    setLockedUI(true);
+                } else {
+                    setLockedUI(false);
+                    applyStatuses();
+                }
+            }).getBookingStatus();
+        }
+
+        // Welcome / Post-confirm helpers
+        function openWelcome() {
+            const modal = document.getElementById('welcomeModal');
+            if (modal) modal.classList.add('open');
+        }
+
+        function closeWelcome() {
+            const modal = document.getElementById('welcomeModal');
+            if (modal) modal.classList.remove('open');
+        }
+
+        function openPostConfirm(seatId) {
+            const bodyEl = document.getElementById('postConfirmBody');
+            const html = (LANG === 'ar')
+                ? `
+          <p style="margin:0 0 8px;">تم حجز مقعدك بنجاح.</p>
+          <p style="margin:0 0 8px;"><strong>المقعد:</strong> ${seatId || '—'}</p>
+          <p style="margin:0 0 8px;">
+            يرجى التوجه إلى <strong>الموقع المحدد</strong>
+            لاستلام التذكرة <strong>في التاريخ المحدد</strong> من
+            <strong>9:00 صباحًا</strong> إلى <strong>3:00 عصرًا</strong>.
+          </p>
+        `
+                : `
+          <p style="margin:0 0 8px;">Your seat has been booked successfully.</p>
+          <p style="margin:0 0 8px;"><strong>Seat:</strong> ${seatId || '—'}</p>
+          <p style="margin:0 0 8px;">
+            Please go to the <strong>designated location</strong>
+            to collect your ticket <strong>on the specified date</strong> between
+            <strong>9:00 AM</strong> and <strong>3:00 PM</strong>.
+          </p>
+        `;
+            bodyEl.innerHTML = html;
+            document.getElementById('postConfirmModal').classList.add('open');
+        }
+        function closePostConfirm() {
+            document.getElementById('postConfirmModal').classList.remove('open');
+        }
+
+
+        // Keyboard shortcuts
+        function isBookingModalOpen() { return modal.classList.contains('open'); }
+        function isCancelModalOpen() { return cancelModal.classList.contains('open'); }
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                if (isBookingModalOpen()) { e.preventDefault(); confirmBooking(); }
+                else if (isCancelModalOpen()) { e.preventDefault(); doCancelBooking(); }
+                else if (selectedSeat && selectedGender) { e.preventDefault(); onConfirmSelectionClick(); }
+            } else if (e.key === 'Escape') {
+                if (isBookingModalOpen()) { e.preventDefault(); closeModal(); }
+                else if (isCancelModalOpen()) { e.preventDefault(); closeCancelModal(); }
+                else { e.preventDefault(); clearSelection(); }
+            }
+        });
+
+        // Boot
+        window.addEventListener('load', () => {
+            // Lock overlay dismiss
+            lockOkBtn.addEventListener('click', () => lockCurtain.classList.remove('open'));
+
+            langBtn.addEventListener('click', () => { LANG = (LANG === 'ar') ? 'en' : 'ar'; localStorage.setItem('lang', LANG); applyLangTexts(); applyStatuses(); });
+            gender.addEventListener('change', e => { if (!bookingOpen) return; selectedGender = e.target.value || ''; selectedSeat = null; applyStatuses(); });
+
+            selectConfirmBtn.addEventListener('click', onConfirmSelectionClick);
+            clearSelectionBtn.addEventListener('click', clearSelection);
+            cancelReservationBtn.addEventListener('click', openCancelModal);
+
+            cancelBtn.addEventListener('click', closeModal);
+            confirmBtn.addEventListener('click', confirmBooking);
+
+            cancelCancelBtn.addEventListener('click', closeCancelModal);
+            doCancelBtn.addEventListener('click', doCancelBooking);
+
+            document.getElementById('welcomeOk').addEventListener('click', closeWelcome);
+            document.getElementById('postConfirmOk').addEventListener('click', closePostConfirm);
+
+            applyLangTexts();
+            buildLayout();
+            refreshSeats();
+
+            startSeatPolling();
+
+            // Welcome popup once per browser
+            openWelcome();
+
+            // Backend status now and every 20s
+            checkBookingStatus();
+            setInterval(checkBookingStatus, 20000);
+
+
+            // Seat status poll
+            //setInterval(refreshSeats, 10000);
+        });
+    </script>
+</body>
+
+</html>
